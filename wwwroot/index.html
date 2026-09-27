@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workflow Runner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">WORKFLOW RUNNER</div>
+    <nav>
+      <button class="tab" data-tab="setup">Thiết lập</button>
+      <button class="tab" data-tab="run">Chạy</button>
+    </nav>
+    <div id="top-wf" class="top-wf"></div>
+    <div class="grow"></div>
+    <span id="top-busy" class="top-busy" hidden>Đang chạy…</span>
+    <div id="top-repo" class="top-repo mono"></div>
+    <button id="top-reset" class="top-btn" hidden>Làm lại từ đầu</button>
+  </header>
+
+  <div id="toast" role="status" hidden></div>
+
+  <!-- ===== Thiết lập ===== -->
+  <main id="setup" class="page" hidden>
+    <aside class="col setup-left">
+      <div class="group">
+        <div class="caps">WORKFLOW</div>
+        <div id="wf-list" class="stack-8"></div>
+        <div id="wf-new-form" class="inline-form" hidden>
+          <input id="wf-new-name" placeholder="Tên workflow, vd. Nâng cấp .NET 8" aria-label="Tên workflow mới">
+          <div class="row-8"><button id="wf-new-ok" class="btn btn-primary btn-sm">Tạo</button><button id="wf-new-cancel" class="btn btn-sm">Hủy</button></div>
+        </div>
+        <button id="wf-new" class="btn-dashed">+ Workflow mới</button>
+      </div>
+      <div class="group">
+        <div class="row-center"><div class="caps grow">FOLDER (THỨ TỰ CHẠY)</div><button id="folder-add" class="icon-btn" aria-label="Thêm folder">+</button></div>
+        <div id="folder-new-form" class="inline-form" hidden>
+          <input id="folder-new-name" class="mono" placeholder="VD: src\OrderService" aria-label="Folder mới">
+          <div class="row-8"><button id="folder-new-ok" class="btn btn-primary btn-sm">Thêm</button><button id="folder-new-cancel" class="btn btn-sm">Hủy</button></div>
+        </div>
+        <div id="folder-list" class="stack-8"></div>
+        <div class="hint">Kéo để đổi thứ tự. Đường dẫn tính từ thư mục gốc repo.</div>
+      </div>
+    </aside>
+
+    <section class="col setup-steps">
+      <div class="row-center pad-4"><div class="caps grow">STEP CỦA WORKFLOW</div><div id="step-count" class="muted small"></div></div>
+      <div id="step-list" class="stack-8"></div>
+      <button id="step-add" class="btn-dashed">+ Thêm step</button>
+      <div class="hint pad-4">Kéo tay nắm bên trái hoặc dùng nút lên/xuống để đổi thứ tự. Đổi thứ tự và xóa có hiệu lực ngay; sửa nội dung cần bấm <b>Lưu step</b>.</div>
+    </section>
+
+    <section id="editor" class="col setup-editor"></section>
+  </main>
+
+  <!-- ===== Chạy ===== -->
+  <main id="run" class="page" hidden>
+    <aside class="col run-side">
+      <div class="caps pad-6">TIẾN TRÌNH</div>
+      <div id="side-steps" class="stack-8"></div>
+      <div class="grow"></div>
+      <div id="side-folders" class="side-folders"></div>
+    </aside>
+
+    <section id="run-main" class="col run-main"></section>
+
+    <aside class="col run-right">
+      <div class="row-baseline"><div class="caps grow">LỊCH SỬ COMMIT</div><div id="hist-count" class="muted xsmall"></div></div>
+      <div id="hist" class="hist"></div>
+      <div id="hist-lock" class="lock-hint" hidden></div>
+      <div class="caps pt-6">NHẬT KÝ</div>
+      <div id="log" class="log"></div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

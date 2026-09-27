@@ -14,8 +14,10 @@ public class Git(Repo repo)
     // Git in ra mọi lệnh đã chạy, Runner nối vào log
     public Action<string> OnLine { get; set; } = _ => { };
 
-    public async Task<bool> HasChangesAsync(string folder) =>
-        (await Must("status", "--porcelain", "--", folder + "/")).Out.Trim().Length > 0;
+    public async Task<bool> HasChangesAsync(string folder) => await ChangeCountAsync(folder) > 0;
+
+    public async Task<int> ChangeCountAsync(string folder) =>
+        Lines((await Must("status", "--porcelain", "--untracked-files=all", "--", folder + "/")).Out).Count;
 
     public async Task<string> CommitAsync(string folder, string message)
     {
@@ -55,7 +57,16 @@ public class Git(Repo repo)
         return r.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
     }
 
-    public async Task<string> SubjectAsync(string sha) => (await Must("log", "-1", "--format=%B", sha)).Out.Trim();
+    public async Task<List<string>> FilesOfCommitAsync(string sha) =>
+        Lines((await Must("diff-tree", "--root", "--no-commit-id", "--name-only", "-r", sha)).Out);
+
+    // Thay đổi đang staged khi dừng ở commit cần sửa: "M path", "A path"...
+    public async Task<List<string>> StagedAsync() => Lines((await Must("diff", "--cached", "--name-status")).Out);
+
+    public async Task<List<string>> ConflictsAsync() => Lines((await Must("diff", "--name-only", "--diff-filter=U")).Out);
+
+    static List<string> Lines(string s) =>
+        s.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
     // Dừng rebase ở commit sha (exe này làm GIT_SEQUENCE_EDITOR đổi pick → edit) rồi bỏ commit, giữ thay đổi ở stage
     public async Task AmendStartAsync(string sha, string? parent)

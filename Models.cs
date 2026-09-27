@@ -24,6 +24,7 @@ public class StepDef
     public string Name { get; set; } = "";
     public string Kind { get; set; } = "app";                         // "app" | "manual"
     public string? Shell { get; set; }                                // "cmd" | "powershell"
+    public string? PsHost { get; set; }                               // null = theo defaults.psHost
     public string? App { get; set; }
     public List<string>? Args { get; set; }
     public string? Guide { get; set; }
@@ -46,6 +47,7 @@ public class RunState
     public AmendState? Amend { get; set; }                            // != null khi đang sửa commit cũ
     public List<string> Log { get; set; } = new();                    // giữ ~500 dòng cuối cho UI
     public int LogTotal { get; set; }                                 // tổng số dòng đã ghi, để UI hỏi "từ dòng N"
+    public bool Paused { get; set; }                                  // "Dừng workflow": khóa thao tác tới khi Tiếp tục
 
     public bool InProgress => WorkflowFile != "" && CurrentStepId != null;
 }
@@ -53,6 +55,7 @@ public class RunState
 public class StepRun
 {
     public StepStatus Status { get; set; }
+    public bool Auto { get; set; }                                    // chạy liên tiếp pass 100% → tool tự commit
     public List<FolderRun> Folders { get; set; } = new();
 }
 
@@ -61,9 +64,11 @@ public class FolderRun
     public string Folder { get; set; } = "";
     public FolderResult Result { get; set; }
     public int ExitCode { get; set; }
+    public string Summary { get; set; } = "";   // dòng output cuối, hiện cạnh tên folder
     public string CommitMessage { get; set; } = "";
     public string? CommitSha { get; set; }      // sha đầy đủ; null = chưa commit
     public bool Restored { get; set; }
+    public bool Amended { get; set; }           // đã sửa lại qua luồng sửa commit cũ
     // Đã xử lý xong = đã commit, đã restore, hoặc không có gì để xử lý
     public bool Handled => CommitSha != null || Restored || Result == FolderResult.NoChange;
 }

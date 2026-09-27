@@ -26,16 +26,29 @@ public class WorkflowStore(Repo repo)
             ? Directory.GetFiles(Dir, "*.yml").Select(Path.GetFileNameWithoutExtension).OfType<string>().Order().ToList()
             : new();
 
+    // Id kèm tên hiển thị cho danh sách workflow; file hỏng vẫn hiện (theo id) để còn mở ra sửa
+    public List<(string Id, string Name)> ListNamed() =>
+        List().Select(id => { try { var n = Read(id).Wf.Name; return (id, n == "" ? id : n); } catch { return (id, id); } }).ToList();
+
     public WorkflowDef Load(string id)
+    {
+        var (wf, errors) = Read(id);
+        if (errors.Count > 0) throw new InvalidOperationException("Workflow không hợp lệ:\n- " + string.Join("\n- ", errors));
+        return wf;
+    }
+
+    // Đọc kèm danh sách lỗi, không ném: màn Thiết lập vẫn mở được file sai để sửa
+    public (WorkflowDef Wf, List<string> Errors) Read(string id)
     {
         var path = PathOf(id);
         if (!File.Exists(path)) throw new InvalidOperationException($"Không thấy workflow '{id}'");
         WorkflowDef wf;
         try { wf = Reader.Deserialize<WorkflowDef>(File.ReadAllText(path)) ?? new(); }
-        catch (YamlDotNet.Core.YamlException e) { throw new InvalidOperationException($"YAML lỗi ở {e.Start}: {e.InnerException?.Message ?? e.Message}"); }
-        var errors = Validate(wf);
-        if (errors.Count > 0) throw new InvalidOperationException("Workflow không hợp lệ:\n- " + string.Join("\n- ", errors));
-        return wf;
+        catch (YamlDotNet.Core.YamlException e)
+        {
+            return (new WorkflowDef(), [$"YAML lỗi ở {e.Start}: {e.InnerException?.Message ?? e.Message}"]);
+        }
+        return (wf, Validate(wf));
     }
 
     public void Save(string id, WorkflowDef wf)
@@ -57,7 +70,6 @@ public class WorkflowStore(Repo repo)
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(wf.Name)) errors.Add("Thiếu name");
-        if (wf.Folders.Count == 0) errors.Add("Cần ít nhất 1 folder");
         foreach (var f in wf.Folders) CheckFolder(f, errors);
         if (wf.Folders.Distinct(StringComparer.OrdinalIgnoreCase).Count() != wf.Folders.Count) errors.Add("Folder bị trùng");
         if (wf.Defaults.TimeoutSeconds <= 0) errors.Add("defaults.timeoutSeconds phải > 0");
@@ -77,6 +89,7 @@ public class WorkflowStore(Repo repo)
             {
                 if (string.IsNullOrWhiteSpace(s.App)) errors.Add($"{at}: kind app phải có app");
                 if (s.Shell is not ("cmd" or "powershell")) errors.Add($"{at}: kind app phải có shell (cmd | powershell)");
+                if (s.PsHost is not (null or "pwsh" or "powershell.exe")) errors.Add($"{at}: psHost phải là pwsh hoặc powershell.exe");
                 CheckVars(s.App ?? "", CommandVars, $"{at}.app", errors);
                 foreach (var a in s.Args ?? new()) CheckVars(a, CommandVars, $"{at}.args", errors);
             }

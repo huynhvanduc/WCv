@@ -7,18 +7,25 @@ namespace WorkflowRunner;
 
 public class Shell
 {
-    // Chạy app của step trong thư mục của folder, trả exit code (-1 = timeout / không chạy được); log đẩy từng dòng qua onLine
-    public async Task<int> RunAsync(StepDef step, string folder, string root, Defaults defaults, Action<string> onLine)
+    // Chạy app của step trong thư mục của folder, trả exit code (-1 = timeout / không chạy được)
+    // và dòng output cuối (tóm tắt cho UI); log đẩy từng dòng qua onLine
+    public async Task<(int Exit, string Last)> RunAsync(StepDef step, string folder, string root, Defaults defaults, Action<string> onLine)
     {
         var folderPath = Path.GetFullPath(Path.Combine(root, folder));
         string Expand(string s) => s.Replace("{folder}", folderPath).Replace("{root}", root);
 
         var app = Expand(step.App!);
-        // "tools\x.exe" tương đối: tìm theo gốc repo, vì thư mục làm việc là folder
-        if (!Path.IsPathRooted(app) && app.IndexOfAny(['\\', '/']) >= 0 && File.Exists(Path.Combine(root, app)))
-            app = Path.GetFullPath(Path.Combine(root, app));
+        // "tools\x.cmd" tương đối: tìm theo gốc repo trước, không có thì tìm cạnh WorkflowRunner.exe
+        // (thư mục tools đi kèm tool); thư mục làm việc là folder nên không để nguyên đường dẫn tương đối
+        if (!Path.IsPathRooted(app) && app.IndexOfAny(['\\', '/']) >= 0)
+        {
+            var found = new[] { root, AppContext.BaseDirectory }.Select(b => Path.Combine(b, app)).FirstOrDefault(File.Exists);
+            if (found != null) app = Path.GetFullPath(found);
+        }
         var args = (step.Args ?? new()).Select(Expand).ToList();
         var timeout = step.TimeoutSeconds ?? defaults.TimeoutSeconds;
+        var last = "";
+        void Out(string? line) { if (line is null) return; onLine(line); if (line.Trim() != "") last = line.Trim(); }
 
         var psi = new ProcessStartInfo {
             WorkingDirectory = folderPath,
@@ -28,7 +35,7 @@ public class Shell
 
         if (step.Shell == "powershell")
         {
-            psi.FileName = defaults.PsHost;                                   // pwsh | powershell.exe
+            psi.FileName = step.PsHost ?? defaults.PsHost;                    // pwsh | powershell.exe
             foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command" })
                 psi.ArgumentList.Add(a);
             // Stop: lỗi cmdlet cũng thành exit code != 0
@@ -44,12 +51,12 @@ public class Shell
         onLine($"$ [{folder}] {app} {string.Join(' ', args)}");
         Process p;
         try { p = Process.Start(psi)!; }
-        catch (Win32Exception e) { onLine($"Không chạy được {psi.FileName}: {e.Message}"); return -1; }
+        catch (Win32Exception e) { onLine($"Không chạy được {psi.FileName}: {e.Message}"); return (-1, $"không chạy được {psi.FileName}"); }
 
         using (p)
         {
-            p.OutputDataReceived += (_, e) => { if (e.Data is not null) onLine(e.Data); };
-            p.ErrorDataReceived  += (_, e) => { if (e.Data is not null) onLine(e.Data); };
+            p.OutputDataReceived += (_, e) => Out(e.Data);
+            p.ErrorDataReceived  += (_, e) => Out(e.Data);
             p.BeginOutputReadLine(); p.BeginErrorReadLine();
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
@@ -57,13 +64,13 @@ public class Shell
             {
                 await p.WaitForExitAsync(cts.Token);
                 onLine($"exit {p.ExitCode}");
-                return p.ExitCode;
+                return (p.ExitCode, last);
             }
             catch (OperationCanceledException)
             {
                 p.Kill(entireProcessTree: true);   // không thì process con (dotnet build...) vẫn giữ khóa file
                 onLine($"TIMEOUT sau {timeout}s");
-                return -1;
+                return (-1, $"timeout sau {timeout}s");
             }
         }
     }

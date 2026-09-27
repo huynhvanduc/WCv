@@ -8,6 +8,10 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- wwwroot nhúng vào exe để publish ra đúng 1 file -->
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+    <!-- publish chỉ ra exe: không web.config (IIS), không pdb -->
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +22,10 @@
   <ItemGroup>
     <Content Remove="wwwroot\**" />
     <EmbeddedResource Include="wwwroot\**" />
+    <!-- Đồng thời chép ra cạnh exe: sửa UI không cần build lại; thiếu file thì dùng bản nhúng -->
+    <None Include="wwwroot\**" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <!-- Tool dòng lệnh cho step gọi (tools\upgrade-net8.cmd...): nằm cạnh exe -->
+    <None Include="tools\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 
 </Project>
